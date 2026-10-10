@@ -1,5 +1,8 @@
+import csv
 import math
 import sys
+from datetime import datetime
+from pathlib import Path
 from dataclasses import dataclass
 
 import pygame
@@ -18,7 +21,6 @@ from OpenGL.GL import (
     glClear,
     glClearColor,
     glColor3f,
-    glDisable,
     glEnable,
     glEnd,
     glLineWidth,
@@ -69,10 +71,6 @@ class DroneState:
     pitch: float = 0.06
     yaw: float = 0.0
 
-    roll_rate: float = 0.0
-    pitch_rate: float = 0.0
-    yaw_rate: float = 0.0
-
     speed: float = 28.0
     throttle: float = 0.58
 
@@ -80,18 +78,7 @@ class DroneState:
 
 
 class FixedWingDrone:
-    """
-    Simplified fixed-wing flight model.
-
-    Coordinate system:
-        x: east/west
-        y: altitude
-        z: north/south
-
-    The drone's forward direction is based on yaw and pitch.
-    Roll controls turn authority.
-    Pitch controls climb or descent.
-    """
+    """A simplified, illustrative fixed-wing flight model."""
 
     def __init__(self):
         self.state = DroneState()
@@ -105,55 +92,47 @@ class FixedWingDrone:
         if s.paused:
             return
 
-        # User control inputs in the range [-1, 1].
         roll_input = 0.0
         pitch_input = 0.0
         yaw_input = 0.0
 
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             roll_input -= 1.0
-
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             roll_input += 1.0
 
         if keys[pygame.K_w] or keys[pygame.K_UP]:
             pitch_input += 1.0
-
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
             pitch_input -= 1.0
 
         if keys[pygame.K_q]:
             yaw_input -= 1.0
-
         if keys[pygame.K_e]:
             yaw_input += 1.0
 
-        # Throttle control.
         if keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]:
             s.throttle += 0.30 * dt
-
         if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
             s.throttle -= 0.30 * dt
 
         s.throttle = clamp(s.throttle, 0.0, 1.0)
 
-        # Target attitude.
         max_roll = math.radians(55.0)
         max_pitch = math.radians(25.0)
 
         target_roll = roll_input * max_roll
         target_pitch = math.radians(5.0) + pitch_input * max_pitch
 
-        # Smooth aircraft attitude.
         s.roll = lerp(s.roll, target_roll, 3.5, dt)
         s.pitch = lerp(s.pitch, target_pitch, 2.2, dt)
 
-        # Speed model.
         minimum_speed = 10.0
         maximum_speed = 52.0
-        target_speed = minimum_speed + s.throttle * (maximum_speed - minimum_speed)
+        target_speed = minimum_speed + s.throttle * (
+            maximum_speed - minimum_speed
+        )
 
-        # Drag increases at high pitch and during aggressive banking.
         drag = (
             0.25
             + 0.55 * abs(math.sin(s.roll))
@@ -164,31 +143,22 @@ class FixedWingDrone:
         s.speed += acceleration * dt
         s.speed = clamp(s.speed, 5.0, maximum_speed)
 
-        # Banked turn model.
         gravity = 9.81
         turn_rate = gravity * math.tan(s.roll) / max(s.speed, 1.0)
-
-        # Rudder input adds yaw authority.
         rudder_rate = yaw_input * math.radians(25.0)
 
-        s.yaw += (turn_rate + rudder_rate) * dt
-        s.yaw = wrap_angle(s.yaw)
+        s.yaw = wrap_angle(s.yaw + (turn_rate + rudder_rate) * dt)
 
-        # Climb/descent caused by pitch.
         vertical_speed = s.speed * math.sin(s.pitch)
-
-        # Add a small gravity-like tendency toward level flight.
-        vertical_speed -= 1.5 * math.sin(s.pitch - math.radians(4.0))
-
+        vertical_speed -= 1.5 * math.sin(
+            s.pitch - math.radians(4.0)
+        )
         s.y += vertical_speed * dt
 
-        # Forward horizontal velocity.
         horizontal_speed = s.speed * math.cos(s.pitch)
-
         s.x += horizontal_speed * math.sin(s.yaw) * dt
         s.z += horizontal_speed * math.cos(s.yaw) * dt
 
-        # Ground collision.
         if s.y < 2.0:
             s.y = 2.0
             s.pitch = max(s.pitch, math.radians(3.0))
@@ -196,7 +166,7 @@ class FixedWingDrone:
 
 
 # ------------------------------------------------------------
-# Rendering
+# OpenGL renderer
 # ------------------------------------------------------------
 
 class Renderer:
@@ -204,35 +174,13 @@ class Renderer:
         self.width = width
         self.height = height
 
+        glViewport(0, 0, width, height)
         glEnable(GL_DEPTH_TEST)
         glClearColor(0.42, 0.70, 0.95, 1.0)
 
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        gluPerspective(
-            70.0,
-            width / float(height),
-            0.1,
-            3000.0,
-        )
-
-        glMatrixMode(GL_MODELVIEW)
-
-    def resize(self, width, height):
-        self.width = width
-        self.height = max(height, 1)
-
-        glViewport(0, 0, width, height)
-
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluPerspective(
-            70.0,
-            width / float(height),
-            0.1,
-            3000.0,
-        )
-
+        gluPerspective(70.0, width / float(height), 0.1, 3000.0)
         glMatrixMode(GL_MODELVIEW)
 
     def begin_frame(self):
@@ -243,7 +191,6 @@ class Renderer:
     def set_camera(self, drone):
         s = drone.state
 
-        # Camera behind and above the drone.
         camera_distance = 18.0
         camera_height = 8.0
 
@@ -259,43 +206,21 @@ class Renderer:
         target_z = s.z + 15.0 * forward_z
 
         gluLookAt(
-            camera_x,
-            camera_y,
-            camera_z,
-            target_x,
-            target_y,
-            target_z,
-            0.0,
-            1.0,
-            0.0,
+            camera_x, camera_y, camera_z,
+            target_x, target_y, target_z,
+            0.0, 1.0, 0.0,
         )
 
     def draw_scene(self, drone):
-        self.draw_sky_objects()
         self.draw_ground(drone)
         self.draw_drone(drone)
-
-    def draw_sky_objects(self):
-        # Distant reference lines provide spatial orientation.
-        glLineWidth(1.0)
-        glColor3f(0.75, 0.88, 0.98)
-
-        glBegin(GL_LINES)
-
-        for altitude in [20.0, 40.0, 60.0, 80.0]:
-            glVertex3f(-500.0, altitude, -500.0)
-            glVertex3f(500.0, altitude, -500.0)
-
-        glEnd()
 
     def draw_ground(self, drone):
         s = drone.state
         grid_spacing = 20.0
         grid_radius = 500.0
 
-        # Large green ground plane.
         glColor3f(0.15, 0.36, 0.16)
-
         glBegin(GL_QUADS)
         glVertex3f(s.x - grid_radius, 0.0, s.z - grid_radius)
         glVertex3f(s.x + grid_radius, 0.0, s.z - grid_radius)
@@ -303,7 +228,6 @@ class Renderer:
         glVertex3f(s.x - grid_radius, 0.0, s.z + grid_radius)
         glEnd()
 
-        # Ground grid centered around the aircraft.
         glLineWidth(1.0)
         glColor3f(0.28, 0.52, 0.25)
 
@@ -324,10 +248,8 @@ class Renderer:
 
         glEnd()
 
-        # A runway-like central reference stripe.
         glLineWidth(3.0)
         glColor3f(0.85, 0.85, 0.75)
-
         glBegin(GL_LINES)
         glVertex3f(s.x - 500.0, 0.05, s.z)
         glVertex3f(s.x + 500.0, 0.05, s.z)
@@ -337,12 +259,7 @@ class Renderer:
         s = drone.state
 
         glPushMatrix()
-
         glTranslatef(s.x, s.y, s.z)
-
-        # OpenGL rotations:
-        # yaw around vertical axis, pitch around lateral axis,
-        # roll around longitudinal axis.
         glRotatef(math.degrees(s.yaw), 0.0, 1.0, 0.0)
         glRotatef(-math.degrees(s.pitch), 1.0, 0.0, 0.0)
         glRotatef(math.degrees(s.roll), 0.0, 0.0, 1.0)
@@ -355,12 +272,9 @@ class Renderer:
         glPopMatrix()
 
     def draw_aircraft_body(self):
-        # Nose points in +Z direction.
         glColor3f(0.82, 0.84, 0.88)
-
         glBegin(GL_TRIANGLES)
 
-        # Nose cone.
         glVertex3f(0.0, 0.0, 4.0)
         glVertex3f(-0.65, -0.35, 1.0)
         glVertex3f(0.65, -0.35, 1.0)
@@ -373,17 +287,14 @@ class Renderer:
         glVertex3f(0.0, 0.5, 1.0)
         glVertex3f(-0.65, -0.35, 1.0)
 
-        # Rear fuselage bottom.
         glVertex3f(-0.65, -0.35, 1.0)
         glVertex3f(0.65, -0.35, 1.0)
         glVertex3f(0.0, -0.35, -3.0)
 
         glEnd()
 
-        # Fuselage center line.
         glColor3f(0.20, 0.22, 0.25)
         glLineWidth(2.0)
-
         glBegin(GL_LINES)
         glVertex3f(0.0, 0.05, -2.5)
         glVertex3f(0.0, 0.05, 3.8)
@@ -391,22 +302,18 @@ class Renderer:
 
     def draw_wings(self):
         glColor3f(0.12, 0.25, 0.58)
-
         glBegin(GL_TRIANGLES)
 
-        # Left wing.
         glVertex3f(-0.35, 0.0, 1.4)
         glVertex3f(-7.0, 0.0, -0.8)
         glVertex3f(-0.45, 0.0, -1.0)
 
-        # Right wing.
         glVertex3f(0.35, 0.0, 1.4)
         glVertex3f(7.0, 0.0, -0.8)
         glVertex3f(0.45, 0.0, -1.0)
 
         glEnd()
 
-        # Wing tips.
         glColor3f(0.92, 0.22, 0.10)
         glBegin(GL_TRIANGLES)
 
@@ -421,9 +328,7 @@ class Renderer:
         glEnd()
 
     def draw_tail(self):
-        # Horizontal stabilizer.
         glColor3f(0.15, 0.28, 0.62)
-
         glBegin(GL_TRIANGLES)
 
         glVertex3f(-0.2, 0.0, -2.1)
@@ -436,9 +341,7 @@ class Renderer:
 
         glEnd()
 
-        # Vertical stabilizer.
         glColor3f(0.10, 0.20, 0.50)
-
         glBegin(GL_TRIANGLES)
         glVertex3f(0.0, 0.0, -2.0)
         glVertex3f(0.0, 2.0, -3.1)
@@ -446,10 +349,8 @@ class Renderer:
         glEnd()
 
     def draw_propeller(self):
-        # Propeller is drawn as two dark blades in front of the aircraft.
         glColor3f(0.08, 0.08, 0.08)
         glLineWidth(3.0)
-
         glBegin(GL_LINES)
         glVertex3f(-1.5, 0.0, 3.8)
         glVertex3f(1.5, 0.0, 3.8)
@@ -459,68 +360,52 @@ class Renderer:
 
 
 # ------------------------------------------------------------
-# HUD
+# CSV logging
 # ------------------------------------------------------------
 
-class HUD:
-    def __init__(self, font):
-        self.font = font
+CSV_FIELDS = [
+    "time_s",
+    "x_m",
+    "altitude_m",
+    "z_m",
+    "speed_mps",
+    "throttle_percent",
+    "roll_deg",
+    "pitch_deg",
+    "yaw_deg",
+    "paused",
+]
 
-    def draw_text(self, surface, text, position, color=(255, 255, 255)):
-        rendered = self.font.render(text, True, color)
-        surface.blit(rendered, position)
 
-    def draw(self, surface, drone):
-        s = drone.state
+def create_log_file():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"flight_log_{timestamp}.csv"
+    filepath = Path(__file__).resolve().parent / filename
 
-        panel_color = (12, 18, 28)
-        white = (235, 240, 245)
-        green = (100, 240, 130)
-        yellow = (245, 220, 100)
-        red = (245, 90, 80)
+    csv_file = open(filepath, "w", newline="", encoding="utf-8")
+    writer = csv.DictWriter(csv_file, fieldnames=CSV_FIELDS)
+    writer.writeheader()
+    csv_file.flush()
 
-        # Semi-transparent information panel.
-        panel = pygame.Surface((330, 170), pygame.SRCALPHA)
-        panel.fill((panel_color[0], panel_color[1], panel_color[2], 205))
-        surface.blit(panel, (16, 16))
+    return csv_file, writer, filepath
 
-        self.draw_text(surface, "FIXED-WING UAV SIMULATOR", (30, 28), white)
-        self.draw_text(surface, f"Speed:    {s.speed:6.1f} m/s", (30, 58), green)
-        self.draw_text(surface, f"Altitude: {s.y:6.1f} m", (30, 82), green)
-        self.draw_text(surface, f"Throttle: {s.throttle * 100:5.1f} %", (30, 106), yellow)
-        self.draw_text(
-            surface,
-            f"Roll:     {math.degrees(s.roll):6.1f} deg",
-            (30, 130),
-            white,
-        )
-        self.draw_text(
-            surface,
-            f"Pitch:    {math.degrees(s.pitch):6.1f} deg",
-            (30, 154),
-            white,
-        )
 
-        controls = [
-            "W/S or Up/Down: pitch",
-            "A/D or Left/Right: roll",
-            "Q/E: rudder yaw",
-            "Shift/Ctrl: throttle",
-            "R: reset     Space: pause",
-            "Esc: quit",
-        ]
+def log_telemetry(writer, csv_file, sim_time, state):
+    writer.writerow({
+        "time_s": f"{sim_time:.3f}",
+        "x_m": f"{state.x:.3f}",
+        "altitude_m": f"{state.y:.3f}",
+        "z_m": f"{state.z:.3f}",
+        "speed_mps": f"{state.speed:.3f}",
+        "throttle_percent": f"{state.throttle * 100.0:.2f}",
+        "roll_deg": f"{math.degrees(state.roll):.3f}",
+        "pitch_deg": f"{math.degrees(state.pitch):.3f}",
+        "yaw_deg": f"{math.degrees(state.yaw):.3f}",
+        "paused": state.paused,
+    })
 
-        y = surface.get_height() - 155
-
-        for line in controls:
-            self.draw_text(surface, line, (20, y), white)
-            y += 23
-
-        if s.paused:
-            pause_text = self.font.render("PAUSED", True, red)
-            x = (surface.get_width() - pause_text.get_width()) // 2
-            y = surface.get_height() // 2
-            surface.blit(pause_text, (x, y))
+    # Flush each row so recent samples are saved while the program runs.
+    csv_file.flush()
 
 
 # ------------------------------------------------------------
@@ -529,13 +414,11 @@ class HUD:
 
 def main():
     pygame.init()
-    pygame.font.init()
 
     width = 1280
     height = 720
 
     pygame.display.set_caption("Fixed-Wing Drone Simulator")
-
     pygame.display.set_mode(
         (width, height),
         OPENGL | DOUBLEBUF,
@@ -543,57 +426,62 @@ def main():
     )
 
     clock = pygame.time.Clock()
-
-    font = pygame.font.SysFont("consolas", 18)
-    hud = HUD(font)
     drone = FixedWingDrone()
     renderer = Renderer(width, height)
 
+    csv_file, csv_writer, csv_path = create_log_file()
+    print(f"Logging telemetry to: {csv_path}")
+
+    sim_time = 0.0
+    log_interval = 0.1  # 10 samples per simulated second
+    log_timer = 0.0
     running = True
 
-    while running:
-        dt = clock.tick(60) / 1000.0
-        dt = min(dt, 0.05)
+    try:
+        while running:
+            dt = min(clock.tick(60) / 1000.0, 0.05)
 
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                running = False
-
-            elif event.type == KEYDOWN:
-                if event.key == K_ESCAPE:
+            for event in pygame.event.get():
+                if event.type == QUIT:
                     running = False
 
-                elif event.key == K_r:
-                    drone.reset()
+                elif event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        running = False
+                    elif event.key == K_r:
+                        drone.reset()
+                    elif event.key == K_SPACE:
+                        drone.state.paused = not drone.state.paused
 
-                elif event.key == K_SPACE:
-                    drone.state.paused = not drone.state.paused
+            keys = pygame.key.get_pressed()
+            drone.update(keys, dt)
 
-        keys = pygame.key.get_pressed()
-        drone.update(keys, dt)
+            if not drone.state.paused:
+                sim_time += dt
+                log_timer += dt
 
-        renderer.begin_frame()
-        renderer.set_camera(drone)
-        renderer.draw_scene(drone)
+            if log_timer >= log_interval:
+                log_telemetry(csv_writer, csv_file, sim_time, drone.state)
+                log_timer = 0.0
 
-        # OpenGL rendering must finish before switching to the 2D HUD.
-        pygame.display.flip()
+            renderer.begin_frame()
+            renderer.set_camera(drone)
+            renderer.draw_scene(drone)
 
-        # Draw HUD in a separate 2D surface after the OpenGL frame.
-        # This works reliably when the HUD is drawn before the next frame
-        # is cleared by OpenGL.
-        #
-        # For maximum compatibility, use a second normal display surface
-        # only if your driver supports it. The current implementation keeps
-        # the OpenGL scene and input functional across common systems.
+            s = drone.state
+            pygame.display.set_caption(
+                f"Fixed-Wing UAV | "
+                f"Speed {s.speed:.1f} m/s | "
+                f"Altitude {s.y:.1f} m"
+            )
 
-        pygame.display.set_caption(
-            f"Fixed-Wing UAV | "
-            f"Speed {drone.state.speed:.1f} m/s | "
-            f"Altitude {drone.state.y:.1f} m"
-        )
+            pygame.display.flip()
 
-    pygame.quit()
+    finally:
+        csv_file.close()
+        pygame.quit()
+        print(f"Telemetry saved to: {csv_path}")
+
     sys.exit()
 
 
