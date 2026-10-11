@@ -37,7 +37,7 @@ If PowerShell blocks virtual-environment activation, you can skip activation and
 .\.venv\Scripts\python.exe main.py
 ```
 
-The simulator opens a 1280 × 720 window. Its title displays the current speed and altitude.
+The simulator opens a 1280 × 720 window. Its title displays the current speed and altitude, recording status (`REC` or `NOT RECORDING`), and the `L` key shortcut.
 
 ## Controls
 
@@ -53,11 +53,14 @@ The simulator opens a 1280 × 720 window. Its title displays the current speed a
 | `Left Ctrl` / `Right Ctrl` | Decrease throttle |
 | `Space` | Pause or resume |
 | `R` | Reset the aircraft state |
+| `L` | Start or stop CSV telemetry recording |
 | `Esc` or close the window | Exit |
 
 ## Flight telemetry
 
-When the simulator starts, it creates a file named `flight_log_YYYYMMDD_HHMMSS.csv` in the same folder as `main.py`. Telemetry is written at approximately 10 samples per simulated second and flushed to the file as it is recorded. On exit, the file is closed and its path is printed in the terminal.
+Press `L` to start recording. The simulator creates a file named `flight_log_YYYYMMDD_HHMMSS.csv` in the same folder as `main.py` and immediately writes the current telemetry sample. While recording, it writes additional samples at approximately 10 samples per simulated second and flushes each row to the file.
+
+Press `L` again to stop recording and close the file. If you exit while recording, the simulator closes the file automatically. The path to the most recent CSV log is printed in the terminal. Each new recording creates a separate CSV file.
 
 The CSV includes:
 

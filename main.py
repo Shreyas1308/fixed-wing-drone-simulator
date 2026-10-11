@@ -6,7 +6,16 @@ from pathlib import Path
 from dataclasses import dataclass
 
 import pygame
-from pygame.locals import DOUBLEBUF, OPENGL, QUIT, KEYDOWN, K_ESCAPE, K_r, K_SPACE
+from pygame.locals import (
+    DOUBLEBUF,
+    OPENGL,
+    QUIT,
+    KEYDOWN,
+    K_ESCAPE,
+    K_r,
+    K_SPACE,
+    K_l,
+)
 
 from OpenGL.GL import (
     GL_COLOR_BUFFER_BIT,
@@ -429,8 +438,11 @@ def main():
     drone = FixedWingDrone()
     renderer = Renderer(width, height)
 
-    csv_file, csv_writer, csv_path = create_log_file()
-    print(f"Logging telemetry to: {csv_path}")
+    csv_file = None
+    csv_writer = None
+    csv_path = None
+    last_saved_csv_path = None
+    recording = False
 
     sim_time = 0.0
     log_interval = 0.1  # 10 samples per simulated second
@@ -448,19 +460,44 @@ def main():
                 elif event.type == KEYDOWN:
                     if event.key == K_ESCAPE:
                         running = False
+
                     elif event.key == K_r:
                         drone.reset()
+
                     elif event.key == K_SPACE:
                         drone.state.paused = not drone.state.paused
+
+                    elif event.key == K_l:
+                        recording = not recording
+
+                        if recording:
+                            csv_file, csv_writer, csv_path = create_log_file()
+                            last_saved_csv_path = csv_path
+                            log_timer = 0.0
+
+                            log_telemetry(csv_writer, csv_file, sim_time, drone.state)
+
+                            print(f"Recording started: {csv_path}")
+
+                        else:
+                            if csv_file is not None:
+                                csv_file.close()
+                                print(f"Recording stopped: Telemetry saved {csv_path}")
+
+                            csv_file = None
+                            csv_writer = None
+                            csv_path = None
+                            log_timer = 0.0
 
             keys = pygame.key.get_pressed()
             drone.update(keys, dt)
 
             if not drone.state.paused:
                 sim_time += dt
-                log_timer += dt
+                if recording:
+                    log_timer += dt
 
-            if log_timer >= log_interval:
+            if recording and log_timer >= log_interval:
                 log_telemetry(csv_writer, csv_file, sim_time, drone.state)
                 log_timer = 0.0
 
@@ -469,18 +506,27 @@ def main():
             renderer.draw_scene(drone)
 
             s = drone.state
+            recording_status = "REC" if recording else "NOT RECORDING"
             pygame.display.set_caption(
                 f"Fixed-Wing UAV | "
                 f"Speed {s.speed:.1f} m/s | "
-                f"Altitude {s.y:.1f} m"
+                f"Altitude {s.y:.1f} m | "
+                f"{recording_status} | "
+                f"L: Start/Stop CSV"
             )
 
             pygame.display.flip()
 
     finally:
-        csv_file.close()
+        if csv_file is not None:
+            csv_file.close()
+
+            if csv_path is not None:
+                print(f"Recording stopped. Telemetry saved to: {csv_path}")
+
         pygame.quit()
-        print(f"Telemetry saved to: {csv_path}")
+        if last_saved_csv_path is not None:
+            print(f"Last CSV log: {last_saved_csv_path}")
 
     sys.exit()
 
