@@ -389,7 +389,9 @@ CSV_FIELDS = [
 def create_log_file():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"flight_log_{timestamp}.csv"
-    filepath = Path(__file__).resolve().parent / filename
+    log_directory = Path(__file__).resolve().parent / "flight_logs"
+    log_directory.mkdir(exist_ok=True)
+    filepath = log_directory / filename
 
     csv_file = open(filepath, "w", newline="", encoding="utf-8")
     writer = csv.DictWriter(csv_file, fieldnames=CSV_FIELDS)

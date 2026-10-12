@@ -4,12 +4,16 @@ A small interactive fixed-wing flight simulator built with Python, Pygame, and O
 
 > **Note:** This is an illustrative simulator, not a validated flight model. It is intended for experimentation and learning, not real-world flight planning or control.
 
+## Screenshot
+
+![Fixed-Wing Drone Simulator in flight](screenshots/Screenshot%202026-10-09%20135903.png)
+
 ## Features
 
 - 3D aircraft and ground rendering with OpenGL
 - Keyboard controls for roll, pitch, yaw, and throttle
 - Pause and reset controls
-- Timestamped CSV flight logs, saved beside `main.py`
+- Timestamped CSV flight logs, saved in the `flight_logs/` folder
 - Telemetry fields for position, altitude, speed, throttle, attitude, and pause state
 
 ## Requirements
@@ -58,9 +62,9 @@ The simulator opens a 1280 × 720 window. Its title displays the current speed a
 
 ## Flight telemetry
 
-Press `L` to start recording. The simulator creates a file named `flight_log_YYYYMMDD_HHMMSS.csv` in the same folder as `main.py` and immediately writes the current telemetry sample. While recording, it writes additional samples at approximately 10 samples per simulated second and flushes each row to the file.
+Press `L` to start recording. The simulator creates the `flight_logs/` folder if needed, then creates a file named `flight_log_YYYYMMDD_HHMMSS.csv` inside it and immediately writes the current telemetry sample. While recording, it writes additional samples at approximately 10 samples per simulated second and flushes each row to the file.
 
-Press `L` again to stop recording and close the file. If you exit while recording, the simulator closes the file automatically. The path to the most recent CSV log is printed in the terminal. Each new recording creates a separate CSV file.
+Press `L` again to stop recording and close the file. If you exit while recording, the simulator closes the file automatically. The path to the most recent CSV log is printed in the terminal. Each new recording creates a separate CSV file in `flight_logs/`.
 
 The CSV includes:
 
@@ -81,5 +85,9 @@ Open a flight log in a spreadsheet application to inspect the data or create plo
 .
 ├── main.py
 ├── requirements.txt
-└── README.md
+├── README.md
+├── screenshots/
+│   └── Screenshot 2026-10-09 135903.png
+└── flight_logs/
+    └── flight_log_YYYYMMDD_HHMMSS.csv
 ```
