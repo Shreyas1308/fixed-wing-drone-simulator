@@ -269,7 +269,7 @@ class WeatherModel:
         """Reset the particle anchor to the given world coordinate."""
         self._previous_anchor = tuple(anchor)
 
-    def visibibility_m(self):
+    def visibility_m(self):
         """Return the current visibility in meters."""
         # Illustrative model: rain reduces visibility, but it cannot
         # exceed the clear visibility.

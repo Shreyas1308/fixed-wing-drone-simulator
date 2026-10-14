@@ -12,6 +12,8 @@ A small interactive fixed-wing flight simulator built with Python, Pygame, and O
 
 - 3D aircraft and ground rendering with OpenGL
 - Keyboard controls for roll, pitch, yaw, and throttle
+- Adjustable wind, gusts, and rain, with atmospheric and rain-particle effects
+- Wind affects the aircraft's movement through the world
 - Pause and reset controls
 - Timestamped CSV flight logs, saved in the `flight_logs/` folder
 - Telemetry fields for position, altitude, speed, throttle, attitude, and pause state
@@ -59,6 +61,21 @@ The simulator opens a 1280 × 720 window. Its title displays the current speed a
 | `R` | Reset the aircraft state |
 | `L` | Start or stop CSV telemetry recording |
 | `Esc` or close the window | Exit |
+
+### Weather controls
+
+| Key | Action |
+| --- | --- |
+| `F1` | Calm preset |
+| `F2` | Windy preset |
+| `F3` | Rain preset |
+| `F4` | Heavy-rain preset |
+| `1` / `2` | Decrease / increase wind speed |
+| `3` / `4` | Decrease / increase rain rate |
+| `5` / `6` | Rotate wind direction |
+| `7` / `8` | Decrease / increase gust strength |
+
+The current wind speed, direction, and rain rate are printed in the terminal when a weather setting changes. Weather and rain particles pause with the aircraft.
 
 ## Flight telemetry
 
