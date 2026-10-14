@@ -4,6 +4,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from dataclasses import dataclass
+from simulator.weather import WeatherModel
 
 import pygame
 from pygame.locals import (
@@ -95,7 +96,7 @@ class FixedWingDrone:
     def reset(self):
         self.state = DroneState()
 
-    def update(self, keys, dt):
+    def update(self, keys, dt, weather):
         s = self.state
 
         if s.paused:
@@ -162,11 +163,17 @@ class FixedWingDrone:
         vertical_speed -= 1.5 * math.sin(
             s.pitch - math.radians(4.0)
         )
-        s.y += vertical_speed * dt
 
         horizontal_speed = s.speed * math.cos(s.pitch)
-        s.x += horizontal_speed * math.sin(s.yaw) * dt
-        s.z += horizontal_speed * math.cos(s.yaw) * dt
+
+        air_velocity_x = horizontal_speed * math.sin(s.yaw)
+        air_velocity_z = horizontal_speed * math.cos(s.yaw)
+
+        wind_x, wind_y, wind_z = weather.wind_vector()
+
+        s.x += (air_velocity_x + wind_x) * dt
+        s.y += (vertical_speed + wind_y) * dt
+        s.z += (air_velocity_z + wind_z) * dt
 
         if s.y < 2.0:
             s.y = 2.0
@@ -439,6 +446,12 @@ def main():
     clock = pygame.time.Clock()
     drone = FixedWingDrone()
     renderer = Renderer(width, height)
+    weather = WeatherModel(seed=42)
+
+    print(
+    "Weather: F1 calm | F2 windy | F3 rain | F4 heavy rain\n"
+    "1/2 wind speed | 3/4 rain | 5/6 direction | 7/8 gusts"
+    )
 
     csv_file = None
     csv_writer = None
@@ -456,6 +469,9 @@ def main():
             dt = min(clock.tick(60) / 1000.0, 0.05)
 
             for event in pygame.event.get():
+                if weather.handle_event(event):
+                    print(weather.summary())
+
                 if event.type == QUIT:
                     running = False
 
@@ -465,6 +481,9 @@ def main():
 
                     elif event.key == K_r:
                         drone.reset()
+                        weather.reset_particle_anchor(
+                            (drone.state.x, drone.state.y, drone.state.z)
+                        )
 
                     elif event.key == K_SPACE:
                         drone.state.paused = not drone.state.paused
@@ -492,7 +511,16 @@ def main():
                             log_timer = 0.0
 
             keys = pygame.key.get_pressed()
-            drone.update(keys, dt)
+            weather_dt = 0.0 if drone.state.paused else dt
+
+            weather.update(weather_dt)
+            drone.update(keys, dt, weather)
+
+            s = drone.state
+            weather.update_particles(
+                weather_dt,
+                (s.x, s.y, s.z),
+            )
 
             if not drone.state.paused:
                 sim_time += dt
@@ -503,11 +531,15 @@ def main():
                 log_telemetry(csv_writer, csv_file, sim_time, drone.state)
                 log_timer = 0.0
 
+            weather.apply_atmosphere()
+
             renderer.begin_frame()
             renderer.set_camera(drone)
             renderer.draw_scene(drone)
 
             s = drone.state
+            weather.draw_rain((s.x, s.y, s.z))
+
             recording_status = "REC" if recording else "NOT RECORDING"
             pygame.display.set_caption(
                 f"Fixed-Wing UAV | "

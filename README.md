@@ -84,6 +84,8 @@ Open a flight log in a spreadsheet application to inspect the data or create plo
 ```text
 .
 ├── main.py
+├── simulator/
+│   └── weather.py
 ├── requirements.txt
 ├── README.md
 ├── screenshots/
