@@ -2,3 +2,5 @@ pygame
 PyOpenGL
 PyOpenGL_accelerate
 matplotlib
+requests
+pyproj

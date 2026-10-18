@@ -5,6 +5,9 @@ from datetime import datetime
 from pathlib import Path
 from dataclasses import dataclass
 from simulator.weather import WeatherModel
+from simulator.maps.coordinates import LocalCoordinates
+from simulator.maps.osm_loader import OSMLoader
+from simulator.maps.map_renderer import MapRenderer
 
 import pygame
 from pygame.locals import (
@@ -446,6 +449,28 @@ def main():
     clock = pygame.time.Clock()
     drone = FixedWingDrone()
     renderer = Renderer(width, height)
+
+    # Replace these with your chosen flight-area coordinates.
+    HOME_LAT = 50.683
+    HOME_LON = 10.919
+
+    coordinates = LocalCoordinates(HOME_LAT, HOME_LON)
+
+    project_root = Path(__file__).resolve().parent
+
+    loader = OSMLoader(
+    coordinates=coordinates,
+    cache_dir=project_root / "map_cache",
+    )
+
+    map_data = loader.load(
+        half_size_m=600.0,
+        offline=False,
+        refresh=False,
+    )
+
+    osm_renderer = MapRenderer(map_data)
+
     weather = WeatherModel(seed=42)
 
     print(
@@ -535,10 +560,13 @@ def main():
 
             renderer.begin_frame()
             renderer.set_camera(drone)
-            renderer.draw_scene(drone)
+            renderer.draw_ground(drone)
+            osm_renderer.draw()
+            renderer.draw_drone(drone)
 
             s = drone.state
             weather.draw_rain((s.x, s.y, s.z))
+            osm_renderer.draw_attribution()
 
             recording_status = "REC" if recording else "NOT RECORDING"
             pygame.display.set_caption(

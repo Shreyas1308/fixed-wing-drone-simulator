@@ -62,6 +62,26 @@ The simulator opens a 1280 × 720 window. Its title displays the current speed a
 | `L` | Start or stop CSV telemetry recording |
 | `Esc` or close the window | Exit |
 
+### Map behavior and geographic coordinates
+
+- The aircraft's local position `(x=0, z=0)` corresponds to the selected home coordinates configured in `main.py`.
+- The OpenStreetMap area is loaded around that origin and remains fixed in world coordinates; it does not move or expand as you fly.
+- The ground grid follows the aircraft and has a 500 m radius. At longer distances, map features may extend beyond the visible ground. For an initial test, stay near the origin or increase `grid_radius` in `Renderer.draw_ground`.
+- Buildings are visual only and do not prevent the aircraft from passing through them.
+- If the origin is inside a building footprint, the aircraft may appear over or inside that building. Choose a suitable home location.
+- OpenStreetMap building height tags can be missing, so some buildings use the loader's fallback height.
+
+To convert the aircraft's local position back to geographic coordinates:
+
+```python
+latitude, longitude = coordinates.to_geographic(
+    drone.state.x,
+    drone.state.z,
+)
+```
+
+These coordinates can be added to telemetry separately if needed.
+
 ### Weather controls
 
 | Key | Action |
