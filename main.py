@@ -463,13 +463,20 @@ def main():
     cache_dir=project_root / "map_cache",
     )
 
-    map_data = loader.load(
-        half_size_m=600.0,
-        offline=False,
-        refresh=False,
-    )
-
-    osm_renderer = MapRenderer(map_data)
+    osm_renderer = None
+    try:
+        map_data = loader.load(
+            half_size_m=600.0,
+            offline=False,
+            refresh=False,
+        )
+        osm_renderer = MapRenderer(map_data)
+    except (OSError, RuntimeError) as exc:
+        print(
+            f"Warning: OSM map unavailable: {exc}\n"
+            "The simulator will continue without map features. "
+            "Run again when the map service is available to cache the map."
+        )
 
     weather = WeatherModel(seed=42)
 
@@ -561,12 +568,14 @@ def main():
             renderer.begin_frame()
             renderer.set_camera(drone)
             renderer.draw_ground(drone)
-            osm_renderer.draw()
+            if osm_renderer is not None:
+                osm_renderer.draw()
             renderer.draw_drone(drone)
 
             s = drone.state
             weather.draw_rain((s.x, s.y, s.z))
-            osm_renderer.draw_attribution()
+            if osm_renderer is not None:
+                osm_renderer.draw_attribution()
 
             recording_status = "REC" if recording else "NOT RECORDING"
             pygame.display.set_caption(
