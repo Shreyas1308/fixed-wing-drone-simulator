@@ -4,9 +4,18 @@ A small interactive fixed-wing flight simulator built with Python, Pygame, and O
 
 > **Note:** This is an illustrative simulator, not a validated flight model. It is intended for experimentation and learning, not real-world flight planning or control.
 
-## Screenshot
+## Screenshots
 
-![Fixed-Wing Drone Simulator in flight](screenshots/Screenshot%202026-10-09%20135903.png)
+<table>
+  <tr>
+    <td><img src="screenshots/Screenshot%202026-10-09%20135903.png" alt="Simulator screenshot from October 9, 2026" width="100%"></td>
+    <td><img src="screenshots/Screenshot%202026-10-24%20182951.png" alt="Simulator screenshot from October 24, 2026" width="100%"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/Screenshot%202026-10-24%20183034.png" alt="Simulator screenshot from October 24, 2026" width="100%"></td>
+    <td><img src="screenshots/Screenshot%202026-10-24%20183355.png" alt="Simulator screenshot from October 24, 2026" width="100%"></td>
+  </tr>
+</table>
 
 ## Features
 
@@ -128,7 +137,10 @@ Open a flight log in a spreadsheet application to inspect the data or create plo
 ├── requirements.txt
 ├── README.md
 ├── screenshots/
-│   └── Screenshot 2026-10-09 135903.png
+│   ├── Screenshot 2026-10-09 135903.png
+│   ├── Screenshot 2026-10-24 182951.png
+│   ├── Screenshot 2026-10-24 183034.png
+│   └── Screenshot 2026-10-24 183355.png
 └── flight_logs/
     └── flight_log_YYYYMMDD_HHMMSS.csv
 ```
