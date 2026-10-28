@@ -457,18 +457,23 @@ def main():
     coordinates = LocalCoordinates(HOME_LAT, HOME_LON)
 
     project_root = Path(__file__).resolve().parent
+    osm_file = project_root / "simulator" / "maps" / "map.osm"
 
     loader = OSMLoader(
-    coordinates=coordinates,
-    cache_dir=project_root / "map_cache",
+        coordinates=coordinates,
+        cache_dir=project_root / "map_cache",
     )
 
     osm_renderer = None
     try:
+        if osm_file.is_file():
+            print(f"Loading local OpenStreetMap data: {osm_file}")
+
         map_data = loader.load(
             half_size_m=600.0,
             offline=False,
             refresh=False,
+            osm_file=osm_file if osm_file.is_file() else None,
         )
         osm_renderer = MapRenderer(map_data)
     except (OSError, RuntimeError) as exc:

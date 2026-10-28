@@ -74,9 +74,16 @@ The simulator opens a 1280 × 720 window. Its title displays the current speed a
 ### Map behavior and geographic coordinates
 
 - The aircraft's local position `(x=0, z=0)` corresponds to the selected home coordinates configured in `main.py`.
-- The OpenStreetMap area is loaded around that origin and remains fixed in world coordinates; it does not move or expand as you fly. Its cache is stored in the project `map_cache/` folder and is ignored by Git.
-- On startup, the simulator uses a matching cached map if available. If there is no cache, it tries to download the area; an internet connection and an available Overpass service are required for that first download. A successful download is cached for future runs.
-- If the download or cache read fails, the simulator prints a warning and continues without OSM roads and buildings. Run it again when the map service is available to populate the cache. If you change the home coordinates or map size, a different cache entry is needed.
+- To use a local map, put its `.osm` file in `simulator/maps/`. The current setting loads `simulator/maps/map.osm` directly. Make sure the selected home coordinates lie within the map's geographic bounds.
+- To use a differently named map, update the `osm_file` assignment in `main.py` to the new filename. For example:
+
+  ```python
+  osm_file = project_root / "simulator" / "maps" / "my_area.osm"
+  ```
+
+- When changing maps, replace `map.osm` in `simulator/maps/` or update the path above to match the new file.
+- Without a local `map.osm`, the simulator loads the area around the selected home coordinates from a matching cache or downloads it from Overpass. Downloaded data is cached in the project `map_cache/` folder, which is ignored by Git.
+- If no local map is available and the download or cache read fails, the simulator prints a warning and continues without OSM roads and buildings. Run it again when the map service is available to populate the cache. If you change the home coordinates or map size, a different cache entry is needed.
 - The ground grid follows the aircraft and has a 500 m radius. At longer distances, map features may extend beyond the visible ground. For an initial test, stay near the origin or increase `grid_radius` in `Renderer.draw_ground`.
 - Buildings are visual only and do not prevent the aircraft from passing through them.
 - If the origin is inside a building footprint, the aircraft may appear over or inside that building. Choose a suitable home location.
@@ -133,6 +140,11 @@ Open a flight log in a spreadsheet application to inspect the data or create plo
 .
 ├── main.py
 ├── simulator/
+│   ├── maps/
+│   │   ├── coordinates.py
+│   │   ├── map_renderer.py
+│   │   ├── map.osm
+│   │   └── osm_loader.py
 │   └── weather.py
 ├── requirements.txt
 ├── README.md

@@ -1,4 +1,4 @@
-"""Load a small OSM vector area and cache the original JSON response."""
+"""Load OSM XML or a JSON vector area from Overpass and cache JSON."""
 
 import hashlib
 import json
@@ -6,6 +6,7 @@ import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import requests
 
@@ -81,8 +82,136 @@ class OSMLoader:
         if not isinstance(data.get("elements"), list):
             raise RuntimeError("OSM response has no valid elements list.")
 
-    def load(self, half_size_m=600.0, offline=False, refresh=False):
+    @staticmethod
+    def _read_osm_xml(osm_file):
+        osm_file = Path(osm_file)
+        nodes = {}
+        elements = []
+
+        try:
+            parser = ET.iterparse(osm_file, events=("start", "end"))
+            try:
+                event, root = next(parser)
+            except StopIteration as exc:
+                raise RuntimeError(
+                    f"OSM XML file is empty: {osm_file}"
+                ) from exc
+
+            if event != "start" or root.tag != "osm":
+                raise RuntimeError(
+                    f"Not a valid OSM XML document: {osm_file}"
+                )
+
+            for event, element in parser:
+                if event != "end":
+                    continue
+
+                if element.tag == "node":
+                    try:
+                        nodes[int(element.attrib["id"])] = {
+                            "lat": float(element.attrib["lat"]),
+                            "lon": float(element.attrib["lon"]),
+                        }
+                    except (KeyError, ValueError) as exc:
+                        raise RuntimeError(
+                            f"Invalid node in OSM XML: {osm_file}"
+                        ) from exc
+
+                    element.clear()
+
+                elif element.tag == "way":
+                    try:
+                        way_id = int(element.attrib["id"])
+                        refs = [
+                            int(node.attrib["ref"])
+                            for node in element.findall("nd")
+                        ]
+                    except (KeyError, ValueError) as exc:
+                        raise RuntimeError(
+                            f"Invalid way in OSM XML: {osm_file}"
+                        ) from exc
+
+                    if len(refs) >= 2 and all(ref in nodes for ref in refs):
+                        tags = {
+                            tag.attrib["k"]: tag.attrib["v"]
+                            for tag in element.findall("tag")
+                            if "k" in tag.attrib and "v" in tag.attrib
+                        }
+                        elements.append({
+                            "type": "way",
+                            "id": way_id,
+                            "geometry": [nodes[ref] for ref in refs],
+                            "tags": tags,
+                        })
+
+                    element.clear()
+
+        except ET.ParseError as exc:
+            raise RuntimeError(
+                f"Could not parse OSM XML file: {osm_file}"
+            ) from exc
+
+        return {"elements": elements}
+
+    def _build_map_data(self, data, bounds):
+        roads = []
+        buildings = []
+
+        for element in data["elements"]:
+            if element.get("type") != "way":
+                continue
+
+            geometry = element.get("geometry", [])
+
+            if len(geometry) < 2:
+                continue
+
+            if any(
+                not isinstance(point, dict)
+                or "lat" not in point
+                or "lon" not in point
+                for point in geometry
+            ):
+                continue
+
+            points = tuple(
+                self.coordinates.to_local(point["lat"], point["lon"])
+                for point in geometry
+            )
+
+            tags = dict(element.get("tags", {}))
+            way = MapWay(element["id"], points, tags)
+
+            if "building" in tags and tags["building"] != "no":
+                if len(points) >= 4 and points[0] == points[-1]:
+                    buildings.append(way)
+
+            elif "highway" in tags and tags.get("area") != "yes":
+                roads.append(way)
+
+        print(
+            f"Map ready: {len(roads)} road/path ways, "
+            f"{len(buildings)} building footprints."
+        )
+
+        return MapData(
+            roads=tuple(roads),
+            buildings=tuple(buildings),
+            bounds=bounds,
+        )
+
+    def load(
+        self,
+        half_size_m=600.0,
+        offline=False,
+        refresh=False,
+        osm_file=None,
+    ):
         bounds = self.coordinates.bounding_box(half_size_m)
+
+        if osm_file is not None:
+            data = self._read_osm_xml(osm_file)
+            return self._build_map_data(data, bounds)
 
         bbox_text = ",".join(f"{value:.7f}" for value in bounds)
 
@@ -103,7 +232,9 @@ out body geom;
 
         if cache_path.exists() and (offline or not refresh):
             try:
-                data = json.loads(cache_path.read_text(encoding="utf-8"))
+                data = json.loads(
+                    cache_path.read_text(encoding="utf-8")
+                )
                 self._check_response(data)
             except (ValueError, RuntimeError) as exc:
                 raise RuntimeError(
@@ -155,48 +286,4 @@ out body geom;
                 encoding="utf-8",
             )
 
-        roads = []
-        buildings = []
-
-        for element in data["elements"]:
-            if element.get("type") != "way":
-                continue
-
-            geometry = element.get("geometry", [])
-
-            if len(geometry) < 2:
-                continue
-
-            if any(
-                not isinstance(point, dict)
-                or "lat" not in point
-                or "lon" not in point
-                for point in geometry
-            ):
-                continue
-
-            points = tuple(
-                self.coordinates.to_local(point["lat"], point["lon"])
-                for point in geometry
-            )
-
-            tags = dict(element.get("tags", {}))
-            way = MapWay(element["id"], points, tags)
-
-            if "building" in tags and tags["building"] != "no":
-                if len(points) >= 4 and points[0] == points[-1]:
-                    buildings.append(way)
-
-            elif "highway" in tags and tags.get("area") != "yes":
-                roads.append(way)
-
-        print(
-            f"Map ready: {len(roads)} road/path ways, "
-            f"{len(buildings)} building footprints."
-        )
-
-        return MapData(
-            roads=tuple(roads),
-            buildings=tuple(buildings),
-            bounds=bounds,
-        )
+        return self._build_map_data(data, bounds)
