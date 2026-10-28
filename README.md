@@ -15,6 +15,10 @@ A small interactive fixed-wing flight simulator built with Python, Pygame, and O
     <td><img src="screenshots/Screenshot%202026-10-24%20183034.png" alt="Simulator screenshot from October 24, 2026" width="100%"></td>
     <td><img src="screenshots/Screenshot%202026-10-24%20183355.png" alt="Simulator screenshot from October 24, 2026" width="100%"></td>
   </tr>
+  <tr>
+    <td><img src="screenshots/Screenshot%202026-10-28%20170204.png" alt="Simulator screenshot from October 28, 2026" width="100%"></td>
+    <td><img src="screenshots/Screenshot%202026-10-28%20170252.png" alt="Simulator screenshot from October 28, 2026" width="100%"></td>
+  </tr>
 </table>
 
 ## Features
