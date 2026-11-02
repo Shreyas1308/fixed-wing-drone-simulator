@@ -1,6 +1,6 @@
-# Fixed-Wing Drone Simulator
+# Fixed-Wing Drone Simulator & Telemetry Analysis Framework
 
-A small interactive fixed-wing flight simulator built with Python, Pygame, and OpenGL. Fly a simplified aircraft in a 3D scene, adjust its controls in real time, and record flight telemetry to a CSV file for review after the simulation.
+An interactive fixed-wing flight simulator and a developing telemetry framework built with Python, Pygame, and OpenGL. Fly a simplified aircraft in a 3D scene, record flight data, and use the framework for consistent telemetry handling and future analysis tools.
 
 > **Note:** This is an illustrative simulator, not a validated flight model. It is intended for experimentation and learning, not real-world flight planning or control.
 
