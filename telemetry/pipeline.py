@@ -119,7 +119,7 @@ def process_telemetry_data(raw_data: list[dict[str, Any]]) -> list[TelemetryReco
 
     for index, raw in enumerate(raw_data):
         try:
-            valid_records.append(clean_raw_record(raw))
+            valid_records.append(clean_raw_data(raw))
         except (ValueError, TypeError) as error:
             rejected.append(f"Record {index}: {error}")
 
