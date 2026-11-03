@@ -4,3 +4,4 @@ PyOpenGL_accelerate
 matplotlib
 requests
 pyproj
+numpy 
