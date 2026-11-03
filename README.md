@@ -142,21 +142,34 @@ Open a flight log in a spreadsheet application to inspect the data or create plo
 
 ```text
 .
+├── .gitignore
 ├── main.py
-├── simulator/
-│   ├── maps/
-│   │   ├── coordinates.py
-│   │   ├── map_renderer.py
-│   │   ├── map.osm
-│   │   └── osm_loader.py
-│   └── weather.py
 ├── requirements.txt
-├── README.md
 ├── screenshots/
 │   ├── Screenshot 2026-10-09 135903.png
 │   ├── Screenshot 2026-10-24 182951.png
 │   ├── Screenshot 2026-10-24 183034.png
-│   └── Screenshot 2026-10-24 183355.png
-└── flight_logs/
-    └── flight_log_YYYYMMDD_HHMMSS.csv
+│   ├── Screenshot 2026-10-24 183355.png
+│   ├── Screenshot 2026-10-28 170204.png
+│   └── Screenshot 2026-10-28 170252.png
+├── simulator/
+│   ├── maps/
+│   │   ├── coordinates.py
+│   │   ├── map.osm
+│   │   ├── map_renderer.py
+│   │   └── osm_loader.py
+│   └── weather.py
+├── telemetry/
+│   ├── pipeline.py
+│   └── schema.py
+├── flight_logs/
+│   └── flight_log_20261011_134443.csv
+└── README.md
 ```
+
+- `main.py` runs the Pygame/OpenGL flight simulator and connects the aircraft, map, weather, and CSV logging.
+- `simulator/maps/` contains the local OpenStreetMap data, coordinate conversion, map loading, and map rendering.
+- `simulator/weather.py` implements wind, gust, rain, and atmosphere effects.
+- `telemetry/schema.py` defines the shared telemetry record; `telemetry/pipeline.py` validates and processes telemetry and calculates derived values.
+- `screenshots/` contains README images, and `flight_logs/` stores recorded CSV flights.
+- `.venv/`, Python bytecode, and the downloaded `map_cache/` are local/generated data and are excluded from Git.
