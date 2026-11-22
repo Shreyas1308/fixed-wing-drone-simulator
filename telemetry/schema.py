@@ -38,6 +38,9 @@ class TelemetryRecord:
     # Aircraft state
     throttle: float
     battery_percent: float
+    battery_voltage_v: float | None = None
+    battery_current_a: float | None = None
+    motor_power_w: float | None = None
     flight_mode: str = "MANUAL"
 
     # Optional extra values, such as wind, control-surface angles, etc.
@@ -61,6 +64,9 @@ class TelemetryRecord:
             "throttle": self.throttle,
             "battery_percent": self.battery_percent,
             "flight_mode": self.flight_mode,
+            "battery_voltage_v": self.battery_voltage_v,
+            "battery_current_a": self.battery_current_a,
+            "motor_power_w": self.motor_power_w,
             **self.extra,
         }
 

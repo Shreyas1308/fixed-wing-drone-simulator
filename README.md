@@ -136,7 +136,57 @@ The CSV includes:
 | `roll_deg`, `pitch_deg`, `yaw_deg` | Aircraft attitude angles, in degrees |
 | `paused` | Whether the simulator was paused when the row was written |
 
-Open a flight log in a spreadsheet application to inspect the data or create plots after the flight. Live plotting is not included.
+Open a flight log in a spreadsheet application to inspect it. The simulator does not currently plot live data; post-flight plotting functions are described below.
+
+## Telemetry processing and analysis framework
+
+The telemetry framework is being developed as a separate, reusable path for turning raw flight samples into validated records and analysis results. The intended flow is:
+
+```text
+telemetry/sources.py
+        |  Raw telemetry dictionary
+        v
+telemetry/processors.py
+        |  Cleaned and enriched telemetry
+        v
+telemetry/pipeline.py
+        |  Validated TelemetryRecord
+        v
+telemetry/session.py
+        |  Flight session and metadata
+        v
+telemetry/sinks/
+        |  CSV and/or JSON flight logs (planned)
+        v
+telemetry/analysis.py
+        |  Flight metrics, plots, and anomaly findings
+        +------> Analysis results returned to the caller
+        +------> Plots shown or saved to a caller-selected path
+
+Current simulator CSV logs  --->  flight_logs/
+Manually captured UI images  --->  screenshots/
+```
+
+This diagram describes the planned framework flow, not an automatic end-to-end process yet. The framework is separate from the simulator's existing `L`-key CSV logger.
+
+### What each stage does
+
+- **Sources (`telemetry/sources.py`)** are the input layer, intended to provide raw telemetry dictionaries. The included simulated source models position, motion, orientation, throttle, battery, and flight-mode values.
+- **Processors (`telemetry/processors.py`)** can be composed to round GPS coordinates, clamp selected values to configured ranges, and add per-sample flight-path-angle and ground-track fields.
+- **Pipeline and schema (`telemetry/pipeline.py`, `telemetry/schema.py`)** validate required values, parse timestamps, check numeric fields and ranges, handle optional battery voltage/current/power values, and represent accepted samples as `TelemetryRecord` objects.
+- **Sessions (`telemetry/session.py`)** define a flight ID, start/end timestamps, and record count, and are intended to pass records to configured sinks. Session-to-sink integration is still in development.
+- **Sinks (`telemetry/sinks/`)** are intended to write records to formats such as CSV or JSON. The sink modules are currently placeholders, so framework-managed CSV/JSON output is not available yet.
+- **Analysis (`telemetry/analysis.py`)** provides callable functions for flight and power metrics, GPS distance, turn and stall metrics, endurance estimates, anomaly findings, and flight-summary, GPS-track, and power-usage plots.
+
+### What the framework produces
+
+- **Validated records:** standardized `TelemetryRecord` objects with timestamps, GPS position, altitude, air/ground/vertical speed, heading and attitude, throttle, battery percentage, and optional battery voltage/current/motor power.
+- **Flight metrics:** climb rate, flight-path angle, turn rate, distance, battery drain, turn radius and coordination, wind-speed estimate, stall margin, GPS distance, and estimated remaining endurance.
+- **Power metrics:** when voltage and current are available, per-sample motor power, average power in watts, and estimated energy used in watt-hours. If power telemetry is missing, these metrics are reported as unavailable.
+- **Anomaly findings:** `detect_anomalies()` returns messages for conditions such as excessive roll or pitch, high climb/descent rate, or a large battery drop. It does not display warnings automatically.
+- **Plots:** flight-summary, GPS-track, and power-usage charts. Plot functions display a chart or save it to a caller-provided `save_path`.
+
+The framework is not yet wired end to end into `main.py`: the simulator's `L` key still writes its existing CSV format to `flight_logs/`. The `screenshots/` folder contains manually captured simulator images and is unrelated to telemetry output. Analysis plots are displayed or saved to the path supplied by the caller.
 
 ## Project files
 
@@ -160,8 +210,17 @@ Open a flight log in a spreadsheet application to inspect the data or create plo
 │   │   └── osm_loader.py
 │   └── weather.py
 ├── telemetry/
+│   ├── analysis.py
 │   ├── pipeline.py
-│   └── schema.py
+│   ├── processors.py
+│   ├── schema.py
+│   ├── session.py
+│   ├── sinks/
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── csv_sink.py
+│   │   └── json_sink.py
+│   └── sources.py
 ├── flight_logs/
 │   └── flight_log_20261011_134443.csv
 └── README.md
@@ -170,6 +229,6 @@ Open a flight log in a spreadsheet application to inspect the data or create plo
 - `main.py` runs the Pygame/OpenGL flight simulator and connects the aircraft, map, weather, and CSV logging.
 - `simulator/maps/` contains the local OpenStreetMap data, coordinate conversion, map loading, and map rendering.
 - `simulator/weather.py` implements wind, gust, rain, and atmosphere effects.
-- `telemetry/schema.py` defines the shared telemetry record; `telemetry/pipeline.py` validates and processes telemetry and calculates derived values.
+- `telemetry/` contains the developing source, processing, validation/schema, session, sink, and analysis modules. The session and sink path is not yet integrated end to end.
 - `screenshots/` contains README images, and `flight_logs/` stores recorded CSV flights.
 - `.venv/`, Python bytecode, and the downloaded `map_cache/` are local/generated data and are excluded from Git.

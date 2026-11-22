@@ -29,13 +29,15 @@ NUMERIC_FIELDS = {
     "yaw_deg",
     "throttle",
     "battery_percent",
-    "flight_mode",
 }
 
-REQUIRED_FIELDS = {
-    "timestamp",
-    NUMERIC_FIELDS,
-}
+REQUIRED_FIELDS = {"timestamp", *NUMERIC_FIELDS}
+
+OPTIONAL_NUMERIC_FIELDS = [
+    "battery_voltage_v",
+    "battery_current_a",
+    "motor_power_w",
+]
 
 def clean_raw_data(raw: dict[str, Any]) -> TelemetryRecord:
     """Clean the raw telemetry data."""
@@ -44,6 +46,20 @@ def clean_raw_data(raw: dict[str, Any]) -> TelemetryRecord:
         raise ValueError(f"Missing required telemetry fields: {missing}")
 
     cleaned = dict(raw)
+
+    for field_name in OPTIONAL_NUMERIC_FIELDS:
+        value = cleaned.get(field_name)
+
+        if value is not None:
+            try:
+                cleaned[field_name] = float(value)
+            except (TypeError, ValueError) as error:
+                raise ValueError(
+                    f"Field '{field_name}' must be numeric, got {value!r}"
+                ) from error
+
+            if not np.isfinite(cleaned[field_name]):
+                raise ValueError(f"Field '{field_name}' must be finite")
 
     # Parse timestamp
     if isinstance(cleaned["timestamp"], str):
@@ -88,6 +104,24 @@ def clean_raw_data(raw: dict[str, Any]) -> TelemetryRecord:
 
     if not (0 <= battery <= 100):
         raise ValueError("battery_percent must be between 0 and 100")
+
+    if (
+        cleaned.get("battery_voltage_v") is not None
+        and cleaned["battery_voltage_v"] < 0
+    ):
+        raise ValueError("battery_voltage_v cannot be negative")
+
+    if (
+        cleaned.get("battery_current_a") is not None
+        and cleaned["battery_current_a"] < 0
+    ):
+        raise ValueError("battery_current_a cannot be negative")
+
+    if (
+        cleaned.get("motor_power_w") is not None
+        and cleaned["motor_power_w"] < 0
+    ):
+        raise ValueError("motor_power_w cannot be negative")
 
     return TelemetryRecord(**cleaned)
 
